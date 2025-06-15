@@ -44,6 +44,7 @@ tasks:
       CHANGE_SHELL: "{{ default false .CHANGE_SHELL }}"
     cmds:
       - sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+      - sed -i 's/robbyrussell/kphoen/' ~/.zshrc
       - |
         if [ "{{.CHANGE_SHELL}}" = "true" ]; then
           echo "Changing default shell to zsh"
