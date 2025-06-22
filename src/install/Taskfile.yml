@@ -65,6 +65,10 @@ tasks:
     vars:
       MAKE_DIR: "{{ default false .MAKE_DIR }}"
     cmds:
+      - |
+        (
+          which unzip || (which apt && sudo apt-get update && sudo apt-get install -y unzip) || (which yum && sudo yum install -y unzip) || (which dnf && sudo dnf install -y unzip) || (which pacman && sudo pacman -S --noconfirm unzip) || (which apk && sudo apk add --no-interactive unzip)
+        )
       - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
       - unzip awscliv2.zip
       - sudo ./aws/install
