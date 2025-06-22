@@ -11,34 +11,41 @@ tasks:
       ALPINE_PACKAGES: '{{.ALPINE_PACKAGES | default ""}}'
     cmds:
       - |
-        echo "Installing packages for {{.CHECK_FOR}}"
         
         # Check if any of the specified commands exist before installing packages
         if [ -n "{{.CHECK_FOR}}" ]; then
           CHECK_COMMANDS="{{.CHECK_FOR}}"
           FOUND=false
           
-          # Split CHECK_FOR by comma and check each command
-          IFS=',' read -ra COMMANDS <<< "$CHECK_COMMANDS"
-          for cmd in "${COMMANDS[@]}"; do
+          # Split CHECK_FOR by comma and check each command (POSIX compatible)
+          OLD_IFS="$IFS"
+          IFS=','
+          ALL_FOUND=true
+          for cmd in $CHECK_COMMANDS; do
+            IFS="$OLD_IFS"
             cmd=$(echo "$cmd" | xargs) # trim whitespace
             if which "$cmd" >/dev/null 2>&1; then
               echo "Found required command: $cmd"
-              FOUND=true
-              break
+            else
+              echo "Missing required command: $cmd"
+              ALL_FOUND=false
             fi
           done
+          IFS="$OLD_IFS"
           
-          if [ "$FOUND" = "false" ]; then
-            echo "None of the required commands found: $CHECK_COMMANDS"
+          if [ "$ALL_FOUND" = "true" ]; then
+            echo "All required command(s) already found: $CHECK_COMMANDS"
             echo "Skipping package installation"
             exit 0
+          else
+            echo "Some commands are missing, proceeding with package installation"
           fi
         fi
         
+        echo "Installing packages for {{.CHECK_FOR}}"
         # Install packages based on available package manager
         (
-          which apt && sudo apt-get update && sudo apt-get install -y --no-install-recommends {{.UBUNTU_PACKAGES}}
+          which apt && export DEBIAN_FRONTEND=noninteractive && sudo apt-get update && sudo apt-get install -y --no-install-recommends {{.UBUNTU_PACKAGES}}
         ) || (
           which yum && sudo yum install -y --setopt=install_weak_deps=False {{.FEDORA_PACKAGES}}
         ) || (
@@ -48,41 +55,42 @@ tasks:
         )
       - sudo rm -rf /tmp/* /var/tmp/* || true
 
-  ubuntu:common:
-    desc: Install common packages for Ubuntu
+  packages:common:
+    desc: Install common packages for multiple distributions
     cmds:
-      - which sudo || apt-get update && apt-get install -y sudo
-      - sudo apt-get update
+      - task: distro:package
+        vars:
+          UBUNTU_PACKAGES: "sudo"
+          FEDORA_PACKAGES: "sudo"
+          ARCH_PACKAGES: "sudo"
+          ALPINE_PACKAGES: "sudo"
+      - task: distro:package
+        vars:
+          UBUNTU_PACKAGES: |
+            build-essential curl wget git unzip jq vim zsh openssh-client tmux 
+            file bash-completion dbus dnsutils nano sshpass net-tools tree fzf 
+            gron ipcalc lsb-release ca-certificates
+          FEDORA_PACKAGES: |
+            gcc gcc-c++ make curl wget git unzip jq vim zsh openssh-clients 
+            tmux file bash-completion dbus bind-utils nano
+            sshpass net-tools tree fzf gron ipcalc redhat-lsb-core ca-certificates
+          ARCH_PACKAGES: |
+            base-devel curl wget git unzip jq vim zsh openssh tmux 
+            file bash-completion dbus bind-tools nano sshpass
+            net-tools tree fzf gron ipcalc lsb-release ca-certificates
+          ALPINE_PACKAGES: |
+            build-base curl wget git unzip jq vim zsh openssh-client 
+            tmux file bash-completion dbus bind-tools nano sshpass
+            net-tools tree fzf gron ipcalc ca-certificates
+      
       - |
-        sudo apt-get install -y --no-install-recommends \
-        build-essential \
-        curl \
-        wget \
-        git \
-        unzip \
-        jq \
-        vim \
-        zsh \
-        openssh-client \
-        tmux \
-        file \
-        bash-completion \
-        dbus \
-        dnsutils \
-        nano \
-        sshpass \
-        net-tools \
-        tree \
-        fzf \
-        gron \
-        ipcalc \
-        lsb-release \
-        ca-certificates
-      - sudo apt-get clean
-      - sudo apt-get autoclean
-      - sudo apt-get autoremove -y
-      - sudo rm -rf /var/lib/apt/lists/*
-      - sudo rm -rf /tmp/* /var/tmp/*
+        # Clean package manager caches
+        (which apt && sudo apt-get clean && sudo apt-get autoclean && sudo apt-get autoremove -y && sudo rm -rf /var/lib/apt/lists/*) || \
+        (which yum && sudo yum clean all) || \
+        (which dnf && sudo dnf clean all) || \
+        (which pacman && sudo pacman -Sc --noconfirm) || \
+        (which apk && sudo apk cache clean) || true
+      - sudo rm -rf /tmp/* /var/tmp/* || true
 
   docker:
     desc: Install Docker
@@ -99,10 +107,11 @@ tasks:
     cmds:
       - task: distro:package
         vars:
-          UBUNTU_PACKAGES: "zsh"
-          FEDORA_PACKAGES: "zsh"
-          ARCH_PACKAGES: "zsh"
-          ALPINE_PACKAGES: "zsh"
+          UBUNTU_PACKAGES: "zsh curl git"
+          FEDORA_PACKAGES: "zsh curl git"
+          ARCH_PACKAGES: "zsh curl git"
+          ALPINE_PACKAGES: "zsh curl git"
+          CHECK_FOR: "zsh, curl, git"
       - RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
       - sed -i 's/robbyrussell/kphoen/' ~/.zshrc
       - |
@@ -309,6 +318,118 @@ tasks:
       - curl -fsSL https://webi.sh/{{.PACKAGE}} | bash
 
   vscode_server:
+    desc: Install code-server (VS Code in the browser)
+    vars:
+      VERSION: '{{.VERSION | default "latest"}}'
+      ARCH: '{{.ARCH | default "auto"}}'
+      INSTALL_DIR: '{{.INSTALL_DIR | default "/usr/local/lib/code-server"}}'
+      BIN_DIR: '{{.BIN_DIR | default "/usr/local/bin"}}'
+      DATA_DIR: '{{.DATA_DIR | default "~/.local/share/code-server"}}'
+      EXTENSIONS_DIR: '{{.EXTENSIONS_DIR | default "~/.local/share/code-server/extensions"}}'
+      USER_DATA_DIR: '{{.USER_DATA_DIR | default "~/.local/share/code-server/User"}}'
+    cmds:
+      - task: distro:package
+        vars:
+          UBUNTU_PACKAGES: "curl wget unzip"
+          FEDORA_PACKAGES: "curl wget unzip"
+          ARCH_PACKAGES: "curl wget unzip"
+          ALPINE_PACKAGES: "curl wget unzip"
+      - |
+        echo "Installing code-server version: {{.VERSION}}"
+        
+        # Get the latest version if not specified
+        if [ "{{.VERSION}}" = "latest" ]; then
+          VERSION=$(curl -s https://api.github.com/repos/coder/code-server/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "Latest version: $VERSION"
+        else
+          VERSION="{{.VERSION}}"
+        fi
+        
+        # Detect architecture if auto
+        if [ "{{.ARCH}}" = "auto" ]; then
+          ARCH=$(uname -m)
+          case $ARCH in
+            x86_64) ARCH="amd64" ;;
+            aarch64|arm64) ARCH="arm64" ;;
+            armv7l) ARCH="armv7l" ;;
+            *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+          esac
+        else
+          ARCH="{{.ARCH}}"
+        fi
+        
+        echo "Detected architecture: $ARCH"
+        
+        # Download code-server based on architecture
+        DOWNLOAD_URL="https://github.com/coder/coder/code-server/releases/download/${VERSION}/code-server-${VERSION}-linux-${ARCH}.tar.gz"
+        echo "Downloading from: $DOWNLOAD_URL"
+        
+        # Create temporary directory
+        TEMP_DIR=$(mktemp -d)
+        cd "$TEMP_DIR"
+        
+        # Download and extract
+        if curl -L "$DOWNLOAD_URL" -o code-server.tar.gz; then
+          echo "Download successful"
+        else
+          echo "Error: Failed to download code-server"
+          echo "Trying alternative download method..."
+          # Try alternative URL pattern
+          ALT_URL="https://github.com/coder/code-server/releases/download/${VERSION}/code-server-${VERSION}-linux-${ARCH}.tar.gz"
+          if curl -L "$ALT_URL" -o code-server.tar.gz; then
+            echo "Alternative download successful"
+          else
+            echo "Error: Failed to download from both URLs"
+            echo "Available architectures: amd64, arm64, armv7l"
+            exit 1
+          fi
+        fi
+        
+        tar -xzf code-server.tar.gz
+        
+        # Find the extracted directory
+        EXTRACTED_DIR=$(find . -maxdepth 1 -type d -name "code-server-*" | head -1)
+        
+        if [ -z "$EXTRACTED_DIR" ]; then
+          echo "Error: Could not find extracted code-server directory"
+          exit 1
+        fi
+        
+        # Install code-server
+        sudo mkdir -p {{.INSTALL_DIR}}
+        sudo cp -r "$EXTRACTED_DIR"/* {{.INSTALL_DIR}}/
+        sudo ln -sf {{.INSTALL_DIR}}/bin/code-server {{.BIN_DIR}}/code-server
+        
+        # Create data directories
+        mkdir -p {{.DATA_DIR}}
+        mkdir -p {{.EXTENSIONS_DIR}}
+        mkdir -p {{.USER_DATA_DIR}}
+        
+        # Set permissions
+        sudo chmod +x {{.BIN_DIR}}/code-server
+        sudo chmod +x {{.INSTALL_DIR}}/bin/code-server
+        
+        # Clean up
+        cd /
+        rm -rf "$TEMP_DIR"
+        
+        # Verify installation
+        code-server --version
+        
+        echo "code-server installed successfully!"
+        echo "Version: $VERSION"
+        echo "Architecture: $ARCH"
+        echo "Installation directory: {{.INSTALL_DIR}}"
+        echo "Binary location: {{.BIN_DIR}}/code-server"
+        echo "Data directory: {{.DATA_DIR}}"
+        echo ""
+        echo "To start code-server:"
+        echo "  code-server --bind-addr 0.0.0.0:8080"
+        echo ""
+        echo "To start with authentication:"
+        echo "  code-server --bind-addr 0.0.0.0:8080 --auth password"
+      - rm -rf /tmp/* /var/tmp/* || true
+
   rc_paths:
     desc: Add rc paths to bashrc and zshrc
     cmds:
