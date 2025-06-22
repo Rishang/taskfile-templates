@@ -74,8 +74,9 @@ tasks:
 
   install:terraform:
     desc: Install Terraform
-    vars:
-      TERRAFORM_VERSION: "1.8.3"
+    requires:
+      vars:
+        - TERRAFORM_VERSION
     cmds:
       - wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
       - unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip
@@ -86,8 +87,11 @@ tasks:
 
   install:terragrunt:
     desc: Install Terragrunt
-    vars:
-      TERRAGRUNT_VERSION: "0.58.8"
+    requires:
+      vars:
+        - TERRAGRUNT_VERSION
+    preconditions:
+      - which terraform
     cmds:
       - wget https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64
       - sudo install terragrunt_linux_amd64 /usr/bin/terragrunt
@@ -95,10 +99,71 @@ tasks:
       - echo "complete -C '/usr/bin/terragrunt' terragrunt" >> ~/.bashrc
       - echo "complete -C '/usr/bin/terragrunt' terragrunt" >> ~/.zshrc
 
+  install:tfswitch:
+    desc: Install tfswitch
+    vars:
+      PATH: "{{ default .PATH ~/.local/bin }}"
+    cmds:
+      - |
+        echo "Installing tfswitch"
+        (tfswitch --version || (curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/master/install.sh | sudo bash) && tfswitch --version)
+
+        echo "Installing terraform"
+        mkdir -p ~/.local/bin
+        (which terraform && rm $(which terraform))
+        tfswitch
+
+        # use sudo if PATH starts with `/`
+        if [[ {{.PATH}} == /* ]]; then
+          sudo mv ~/bin/terraform {{.PATH}}/
+        else
+          mv ~/bin/terraform {{.PATH}}/
+        fi
+        terraform --version
+
+  install:tgswitch:
+    desc: Install tgswitch
+    vars:
+      PATH: "{{ default .PATH ~/.local/bin }}"
+    cmds:
+      - |
+        echo "Installing tgswitch"
+        (tgswitch --version || (curl -L https://raw.githubusercontent.com/warrensbox/tgswitch/release/install.sh | sudo bash) && tgswitch --version)
+
+        echo "Installing terragrunt"
+        mkdir -p ~/.local/bin
+        (which terragrunt && rm $(which terragrunt))
+        tgswitch
+
+        # use sudo if PATH starts with `/`
+        if [[ {{.PATH}} == /* ]]; then
+          sudo mv ~/bin/terragrunt {{.PATH}}/
+        else
+          mv ~/bin/terragrunt {{.PATH}}/
+        fi
+        terragrunt --version
+
+  install:ansible:
+    desc: Install Ansible dependencies
+    cmds:
+      - |
+        (
+          which ansible-playbook || (
+            which apt && sudo apt install ansible
+          ) || (
+            which yum && sudo yum install ansible
+          ) || (
+            which dnf && sudo dnf install ansible
+          ) || (
+            which pacman && sudo pacman -S ansible
+          )
+        )
+
   install:kubectl:
     desc: Install kubectl
-    vars:
-      KUBECTL_VERSION: "1.30.0"
+    requires:
+      vars:
+        - KUBECTL_VERSION
     cmds:
       - curl -LO https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl
       - sudo install kubectl /usr/local/bin/
@@ -108,3 +173,28 @@ tasks:
     desc: Install Helm
     cmds:
       - curl -s https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+
+  install:k9s:
+    desc: Install k9s
+    cmds:
+      - curl -sS https://webi.sh/k9s | sh;
+
+  install:install_task:
+    desc: Setup install task tool
+    cmds:
+      - curl -sS https://webinstall.dev/task | bash
+  
+  install:rc_paths:
+    desc: Add rc paths to bashrc and zshrc
+    cmds:
+      - |
+        if [ -f ~/.config/envman/PATH.env ]; then
+          if [ -f ~/.bashrc ]; then
+            cat ~/.bashrc | grep -q "envman/PATH.env" || echo "source $HOME/.config/envman/PATH.env" >> ~/.bashrc
+          fi
+          if [ -f ~/.zshrc ]; then
+            cat ~/.zshrc | grep -q "envman/PATH.env" || echo "source $HOME/.config/envman/PATH.env" >> ~/.zshrc
+          fi
+        else
+          echo "envman is not installed"
+        fi
