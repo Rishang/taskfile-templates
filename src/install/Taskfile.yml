@@ -1,6 +1,53 @@
 version: "3"
 
 tasks:
+  install:distro:package:
+    desc: Install packages for a given distro
+    vars:
+      CHECK_FOR: '{{.CHECK_FOR | default ""}}'
+      UBUNTU_PACKAGES: '{{.UBUNTU_PACKAGES | default ""}}'
+      FEDORA_PACKAGES: '{{.FEDORA_PACKAGES | default ""}}'
+      ARCH_PACKAGES: '{{.ARCH_PACKAGES | default ""}}'
+      ALPINE_PACKAGES: '{{.ALPINE_PACKAGES | default ""}}'
+          cmds:
+        - |
+          echo "Installing packages for {{.CHECK_FOR}}"
+          
+          # Check if any of the specified commands exist before installing packages
+          if [ -n "{{.CHECK_FOR}}" ]; then
+            CHECK_COMMANDS="{{.CHECK_FOR}}"
+            FOUND=false
+            
+            # Split CHECK_FOR by comma and check each command
+            IFS=',' read -ra COMMANDS <<< "$CHECK_COMMANDS"
+            for cmd in "${COMMANDS[@]}"; do
+              cmd=$(echo "$cmd" | xargs) # trim whitespace
+              if which "$cmd" >/dev/null 2>&1; then
+                echo "Found required command: $cmd"
+                FOUND=true
+                break
+              fi
+            done
+            
+            if [ "$FOUND" = "false" ]; then
+              echo "None of the required commands found: $CHECK_COMMANDS"
+              echo "Skipping package installation"
+              exit 0
+            fi
+          fi
+          
+          # Install packages based on available package manager
+          (
+            which apt && sudo apt-get update && sudo apt-get install -y --no-install-recommends {{.UBUNTU_PACKAGES}}
+          ) || (
+            which yum && sudo yum install -y --setopt=install_weak_deps=False {{.FEDORA_PACKAGES}}
+          ) || (
+            which dnf && sudo dnf install -y --setopt=install_weak_deps=False {{.ARCH_PACKAGES}}
+          ) || (
+            which apk && sudo apk add --no-cache --no-interactive {{.ALPINE_PACKAGES}}
+          )
+      - sudo rm -rf /tmp/* /var/tmp/* || true
+
   install:ubuntu:common:
     desc: Install common packages for Ubuntu
     cmds:
@@ -47,8 +94,14 @@ tasks:
   install:ohmyzsh:
     desc: Install Oh My Zsh
     vars:
-      CHANGE_SHELL: "{{ default false .CHANGE_SHELL }}"
+      CHANGE_SHELL: '{{.CHANGE_SHELL | default "false"}}'
     cmds:
+      - task: install:distro:package
+        vars:
+          UBUNTU_PACKAGES: "zsh"
+          FEDORA_PACKAGES: "zsh"
+          ARCH_PACKAGES: "zsh"
+          ALPINE_PACKAGES: "zsh"
       - RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
       - sed -i 's/robbyrussell/kphoen/' ~/.zshrc
       - |
@@ -63,12 +116,14 @@ tasks:
   install:aws:
     desc: Install AWS CLI v2
     vars:
-      MAKE_DIR: "{{ default false .MAKE_DIR }}"
+      MAKE_DIR: '{{.MAKE_DIR | default "false"}}'
     cmds:
-      - |
-        (
-          which unzip || (which apt && sudo apt-get update && sudo apt-get install -y unzip) || (which yum && sudo yum install -y unzip) || (which dnf && sudo dnf install -y unzip) || (which pacman && sudo pacman -S --noconfirm unzip) || (which apk && sudo apk add --no-interactive unzip)
-        )
+      - task: install:distro:package
+        vars:
+          UBUNTU_PACKAGES: "unzip"
+          FEDORA_PACKAGES: "unzip"
+          ARCH_PACKAGES: "unzip"
+          ALPINE_PACKAGES: "unzip"
       - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
       - unzip awscliv2.zip
       - sudo ./aws/install
@@ -96,6 +151,12 @@ tasks:
       vars:
         - TERRAFORM_VERSION
     cmds:
+      - task: install:distro:package
+        vars:
+          UBUNTU_PACKAGES: "wget unzip"
+          FEDORA_PACKAGES: "wget unzip"
+          ARCH_PACKAGES: "wget unzip"
+          ALPINE_PACKAGES: "wget unzip"
       - wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
       - unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip
       - sudo install terraform /usr/local/bin/
@@ -112,6 +173,12 @@ tasks:
     preconditions:
       - which terraform
     cmds:
+      - task: install:distro:package
+        vars:
+          UBUNTU_PACKAGES: "wget"
+          FEDORA_PACKAGES: "wget"
+          ARCH_PACKAGES: "wget"
+          ALPINE_PACKAGES: "wget"
       - wget https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64
       - sudo install terragrunt_linux_amd64 /usr/bin/terragrunt
       - rm -rf terragrunt_linux_amd64
@@ -122,7 +189,7 @@ tasks:
   install:tfswitch:
     desc: Install tfswitch
     vars:
-      PATH: "{{ default .PATH ~/.local/bin }}"
+      PATH: '{{.PATH | default "~/.local/bin"}}'
     cmds:
       - |
         echo "Installing tfswitch"
@@ -146,7 +213,7 @@ tasks:
   install:tgswitch:
     desc: Install tgswitch
     vars:
-      PATH: "{{ default .PATH ~/.local/bin }}"
+      PATH: '{{.PATH | default "~/.local/bin"}}'
     cmds:
       - |
         echo "Installing tgswitch"
@@ -170,18 +237,12 @@ tasks:
   install:ansible:
     desc: Install Ansible dependencies
     cmds:
-      - |
-        (
-          which ansible-playbook || (
-            which apt && sudo apt update && sudo apt install -y ansible
-          ) || (
-            which yum && sudo yum install -y ansible
-          ) || (
-            which dnf && sudo dnf install -y ansible
-          ) || (
-            which pacman && sudo pacman -S --noconfirm ansible
-          )
-        )
+      - task: install:distro:package:
+        vars:
+          UBUNTU_PACKAGES: "ansible"
+          FEDORA_PACKAGES: "ansible"
+          ARCH_PACKAGES: "ansible"
+          ALPINE_PACKAGES: "ansible"
       - |
         # Clean package manager caches
         (which apt && sudo apt-get clean && sudo apt-get autoclean && sudo rm -rf /var/lib/apt/lists/*) || \
@@ -218,25 +279,13 @@ tasks:
   install:python:
     desc: Install Python
     cmds:
-      - |
-        (
-          which python3 && which pip3 && echo "Python3 and pip3 are already installed"
-        ) || (
-          which apt && sudo apt update && DEBIAN_FRONTEND=noninteractive sudo apt install -y python3 python3-pip
-        ) || (
-          which yum && sudo yum install -y python3 python3-pip
-        ) || (
-          which dnf && sudo dnf install -y python3 python3-pip
-        ) || (
-          which pacman && sudo pacman -S --noconfirm python python-pip
-        ) || (
-          which brew && brew install python
-        ) || (
-          which apk && sudo apk add --no-interactive python3 py3-pip
-        )
-        
-        # Verify installation
-        python3 --version && pip3 --version
+      - task: install:distro:package
+        vars:
+          UBUNTU_PACKAGES: "python3 python3-pip"
+          FEDORA_PACKAGES: "python3 python3-pip"
+          ARCH_PACKAGES: "python3 python3-pip"
+          ALPINE_PACKAGES: "python3 py3-pip"
+      - python3 --version && pip3 --version
       - |
         # Clean package manager caches
         (which apt && sudo apt-get clean && sudo apt-get autoclean && sudo rm -rf /var/lib/apt/lists/*) || \
