@@ -1,7 +1,7 @@
 version: "3"
 
 tasks:
-  install:distro:package:
+  distro:package:
     desc: Install packages for a given distro
     vars:
       CHECK_FOR: '{{.CHECK_FOR | default ""}}'
@@ -48,7 +48,7 @@ tasks:
         )
       - sudo rm -rf /tmp/* /var/tmp/* || true
 
-  install:ubuntu:common:
+  ubuntu:common:
     desc: Install common packages for Ubuntu
     cmds:
       - which sudo || apt-get update && apt-get install -y sudo
@@ -83,7 +83,7 @@ tasks:
       - sudo rm -rf /var/lib/apt/lists/*
       - sudo rm -rf /tmp/* /var/tmp/*
 
-  install:docker:
+  docker:
     desc: Install Docker
     cmds:
       - curl -fsSL https://get.docker.com/ | sudo sh
@@ -91,12 +91,12 @@ tasks:
       - sudo rm -rf /tmp/* /var/tmp/*
       - sudo docker system prune -f || true
 
-  install:ohmyzsh:
+  ohmyzsh:
     desc: Install Oh My Zsh
     vars:
       CHANGE_SHELL: '{{.CHANGE_SHELL | default "false"}}'
     cmds:
-      - task: install:distro:package
+      - task: distro:package
         vars:
           UBUNTU_PACKAGES: "zsh"
           FEDORA_PACKAGES: "zsh"
@@ -113,12 +113,12 @@ tasks:
         fi
       - rm -rf /tmp/* /var/tmp/* || true
 
-  install:aws:
+  aws:
     desc: Install AWS CLI v2
     vars:
       MAKE_DIR: '{{.MAKE_DIR | default "false"}}'
     cmds:
-      - task: install:distro:package
+      - task: distro:package
         vars:
           UBUNTU_PACKAGES: "unzip"
           FEDORA_PACKAGES: "unzip"
@@ -145,13 +145,13 @@ tasks:
         fi
       - rm -rf /tmp/* /var/tmp/* || true
 
-  install:terraform:
+  terraform:
     desc: Install Terraform
     requires:
       vars:
         - TERRAFORM_VERSION
     cmds:
-      - task: install:distro:package
+      - task: distro:package
         vars:
           UBUNTU_PACKAGES: "wget unzip"
           FEDORA_PACKAGES: "wget unzip"
@@ -165,7 +165,7 @@ tasks:
       - echo "complete -C '/usr/local/bin/terraform' terraform" >> ~/.zshrc
       - rm -rf /tmp/* /var/tmp/* || true
 
-  install:terragrunt:
+  terragrunt:
     desc: Install Terragrunt
     requires:
       vars:
@@ -173,7 +173,7 @@ tasks:
     preconditions:
       - which terraform
     cmds:
-      - task: install:distro:package
+      - task: distro:package
         vars:
           UBUNTU_PACKAGES: "wget"
           FEDORA_PACKAGES: "wget"
@@ -186,7 +186,7 @@ tasks:
       - echo "complete -C '/usr/bin/terragrunt' terragrunt" >> ~/.zshrc
       - rm -rf /tmp/* /var/tmp/* || true
 
-  install:tfswitch:
+  tfswitch:
     desc: Install tfswitch
     vars:
       PATH: '{{.PATH | default "~/.local/bin"}}'
@@ -210,7 +210,7 @@ tasks:
       - rm -rf /tmp/* /var/tmp/* || true
       - rm -rf ~/bin || true
 
-  install:tgswitch:
+  tgswitch:
     desc: Install tgswitch
     vars:
       PATH: '{{.PATH | default "~/.local/bin"}}'
@@ -234,10 +234,10 @@ tasks:
       - rm -rf /tmp/* /var/tmp/* || true
       - rm -rf ~/bin || true
 
-  install:ansible:
+  ansible:
     desc: Install Ansible dependencies
     cmds:
-      - task: install:distro:package
+      - task: distro:package
         vars:
           UBUNTU_PACKAGES: "ansible"
           FEDORA_PACKAGES: "ansible"
@@ -251,7 +251,7 @@ tasks:
         (which pacman && sudo pacman -Sc --noconfirm) || true
       - rm -rf /tmp/* /var/tmp/* || true
 
-  install:kubectl:
+  kubectl:
     desc: Install kubectl
     requires:
       vars:
@@ -262,24 +262,24 @@ tasks:
       - rm -rf kubectl
       - rm -rf /tmp/* /var/tmp/* || true
 
-  install:helm:
+  helm:
     desc: Install Helm
     cmds:
       - curl -s https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
       - rm -rf /tmp/* /var/tmp/* || true
       - rm -rf ~/get_helm.sh || true
 
-  install:k9s:
+  k9s:
     desc: Install k9s
     cmds:
       - curl -sS https://webi.sh/k9s | sh
       - rm -rf /tmp/* /var/tmp/* || true
       - rm -rf ~/.local/opt/webi || true
 
-  install:python:
+  python:
     desc: Install Python
     cmds:
-      - task: install:distro:package
+      - task: distro:package
         vars:
           UBUNTU_PACKAGES: "python3 python3-pip"
           FEDORA_PACKAGES: "python3 python3-pip"
@@ -300,7 +300,7 @@ tasks:
       - rm -rf /tmp/* /var/tmp/* || true
       - rm -rf ~/.cache/pip || true
 
-  install:rc_paths:
+  rc_paths:
     desc: Add rc paths to bashrc and zshrc
     cmds:
       - |
