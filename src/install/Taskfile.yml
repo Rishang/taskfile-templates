@@ -56,6 +56,8 @@ tasks:
 
   install:aws:
     desc: Install AWS CLI v2
+    vars:
+      MAKE_DIR: "{{ default false .MAKE_DIR }}"
     cmds:
       - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
       - unzip awscliv2.zip
@@ -68,9 +70,14 @@ tasks:
         else
           echo "Zsh configuration file not found, skipping completion setup for Zsh"
         fi
-      - mkdir -p ~/.aws
-      - touch ~/.aws/credentials
-      - touch ~/.aws/config
+      - |
+        if [ "{{.MAKE_DIR}}" = "true" ]; then
+          mkdir -p ~/.aws
+          touch ~/.aws/credentials
+          touch ~/.aws/config
+        else
+          echo "Skipping creating ~/.aws directory"
+        fi
 
   install:terraform:
     desc: Install Terraform
