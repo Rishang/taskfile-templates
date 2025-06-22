@@ -299,6 +299,14 @@ tasks:
         python3 -m pip cache purge || true
       - rm -rf /tmp/* /var/tmp/* || true
       - rm -rf ~/.cache/pip || true
+  webi:
+    desc: "Install package via webi (eg: python@3.13)"
+    requires:
+      vars:
+        - PACKAGE
+    cmds:
+      - curl -fsSL https://webi.sh/{{.PACKAGE}} | bash
+
 
   rc_paths:
     desc: Add rc paths to bashrc and zshrc
