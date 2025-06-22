@@ -53,30 +53,31 @@ tasks:
     cmds:
       - which sudo || apt-get update && apt-get install -y sudo
       - sudo apt-get update
-      - sudo apt-get install -y --no-install-recommends \
-          build-essential \
-          curl \
-          wget \
-          git \
-          unzip \
-          jq \
-          vim \
-          zsh \
-          openssh-client \
-          tmux \
-          file \
-          bash-completion \
-          dbus \
-          dnsutils \
-          nano \
-          sshpass \
-          net-tools \
-          tree \
-          fzf \
-          gron \
-          ipcalc \
-          lsb-release \
-          ca-certificates
+      - |
+        sudo apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        wget \
+        git \
+        unzip \
+        jq \
+        vim \
+        zsh \
+        openssh-client \
+        tmux \
+        file \
+        bash-completion \
+        dbus \
+        dnsutils \
+        nano \
+        sshpass \
+        net-tools \
+        tree \
+        fzf \
+        gron \
+        ipcalc \
+        lsb-release \
+        ca-certificates
       - sudo apt-get clean
       - sudo apt-get autoclean
       - sudo apt-get autoremove -y
@@ -307,7 +308,7 @@ tasks:
     cmds:
       - curl -fsSL https://webi.sh/{{.PACKAGE}} | bash
 
-
+  vscode_server:
   rc_paths:
     desc: Add rc paths to bashrc and zshrc
     cmds:
