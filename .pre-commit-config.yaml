@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: taskfile_lint
+        name: taskfile_local
+        entry: bash -c "cd src && task --list-all"
+        language: system
+        files: ^src/.*\.yml$
+        pass_filenames: false

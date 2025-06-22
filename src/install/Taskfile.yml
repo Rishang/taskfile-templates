@@ -46,7 +46,7 @@ tasks:
         ) || (
           which apk && sudo apk add --no-cache --no-interactive {{.ALPINE_PACKAGES}}
         )
-    - sudo rm -rf /tmp/* /var/tmp/* || true
+      - sudo rm -rf /tmp/* /var/tmp/* || true
 
   install:ubuntu:common:
     desc: Install common packages for Ubuntu
@@ -237,7 +237,7 @@ tasks:
   install:ansible:
     desc: Install Ansible dependencies
     cmds:
-      - task: install:distro:package:
+      - task: install:distro:package
         vars:
           UBUNTU_PACKAGES: "ansible"
           FEDORA_PACKAGES: "ansible"

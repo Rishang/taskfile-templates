@@ -1,0 +1,7 @@
+version: "3"
+
+includes:
+  install:
+    taskfile: ./install/Taskfile.yml
+  k8s:
+    taskfile: ./k8s/Taskfile.yml
